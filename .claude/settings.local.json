@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo build:*)",
+      "Bash(cargo install:*)",
+      "Bash(zenvo versions:*)",
+      "Bash(zenvo --version:*)",
+      "Bash(zenvo resolve:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}

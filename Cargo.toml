@@ -1,0 +1,90 @@
+[package]
+name = "zenvo"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+authors = ["Zenvo Team"]
+description = "Node.js environment lock, doctor & repair tool"
+license = "MIT"
+repository = "https://github.com/h-mbl/zenvo"
+homepage = "https://github.com/h-mbl/zenvo"
+documentation = "https://github.com/h-mbl/zenvo#readme"
+keywords = ["nodejs", "npm", "pnpm", "yarn", "environment"]
+categories = ["command-line-utilities", "development-tools"]
+readme = "README.md"
+exclude = [
+    "npm/",
+    "homebrew/",
+    "docs/",
+    ".github/",
+    "docs/",
+    "*.md",
+    "!README.md",
+    ".claude/"
+]
+
+[dependencies]
+# CLI framework
+clap = { version = "4.4", features = ["derive", "color"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+toml = "0.8"
+
+# Async runtime (for future network operations)
+tokio = { version = "1.35", features = ["full"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# File system utilities
+walkdir = "2.4"
+dirs = "5.0"
+
+# Terminal output
+colored = "2.1"
+indicatif = "0.17"
+
+# Hashing (for lockfile integrity)
+sha2 = "0.10"
+hex = "0.4"
+
+# Semver parsing
+semver = "1.0"
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+
+# HTTP client (for version checking)
+reqwest = { version = "0.11", features = ["json", "blocking"] }
+
+# Environment detection
+which = "6.0"
+
+# Process timeout handling
+wait-timeout = "0.2"
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.0"
+tempfile = "3.9"
+
+[[bin]]
+name = "zenvo"
+path = "src/main.rs"
+
+[[bin]]
+name = "zenvo-mcp"
+path = "src/bin/zenvo-mcp.rs"
+
+[lib]
+name = "zenvo"
+path = "src/lib.rs"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

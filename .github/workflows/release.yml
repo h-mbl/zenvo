@@ -1,0 +1,221 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Build binaries for all platforms
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux x64
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: zenvo-linux-x64
+
+          # Linux ARM64
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: zenvo-linux-arm64
+            cross: true
+
+          # macOS x64 (Intel)
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            artifact: zenvo-darwin-x64
+
+          # macOS ARM64 (Apple Silicon)
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            artifact: zenvo-darwin-arm64
+
+          # Windows x64
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            artifact: zenvo-windows-x64
+            ext: .exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross (Linux ARM64)
+        if: matrix.cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build (cross)
+        if: matrix.cross
+        run: cross build --release --target ${{ matrix.target }}
+
+      - name: Build (native)
+        if: "!matrix.cross"
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare artifact (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/zenvo dist/${{ matrix.artifact }}
+          cp target/${{ matrix.target }}/release/zenvo-mcp dist/${{ matrix.artifact }}-mcp
+          chmod +x dist/*
+          cd dist && tar -czvf ${{ matrix.artifact }}.tar.gz ${{ matrix.artifact }} ${{ matrix.artifact }}-mcp
+
+      - name: Prepare artifact (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist
+          Copy-Item "target/${{ matrix.target }}/release/zenvo.exe" "dist/${{ matrix.artifact }}.exe"
+          Copy-Item "target/${{ matrix.target }}/release/zenvo-mcp.exe" "dist/${{ matrix.artifact }}-mcp.exe"
+          Compress-Archive -Path "dist/${{ matrix.artifact }}.exe", "dist/${{ matrix.artifact }}-mcp.exe" -DestinationPath "dist/${{ matrix.artifact }}.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            dist/${{ matrix.artifact }}
+            dist/${{ matrix.artifact }}.exe
+            dist/${{ matrix.artifact }}-mcp
+            dist/${{ matrix.artifact }}-mcp.exe
+            dist/${{ matrix.artifact }}.tar.gz
+            dist/${{ matrix.artifact }}.zip
+          if-no-files-found: ignore
+
+  # Create GitHub Release
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f | head -20
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: false
+          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+          generate_release_notes: true
+          files: |
+            artifacts/**/zenvo-*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Publish to crates.io
+  publish-crates:
+    name: Publish to crates.io
+    needs: release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Publish to crates.io
+        run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }}
+        continue-on-error: true
+
+  # Publish to npm
+  publish-npm:
+    name: Publish to npm
+    needs: release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Update npm package version
+        working-directory: ./npm
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          npm version $VERSION --no-git-tag-version
+
+      - name: Publish to npm
+        working-directory: ./npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        continue-on-error: true
+
+  # Update Homebrew tap
+  publish-homebrew:
+    name: Update Homebrew
+    needs: release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifacts for SHA256
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Calculate SHA256 and update formula
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+
+          # Calculate SHA256 for each platform
+          SHA_DARWIN_ARM64=$(sha256sum artifacts/zenvo-darwin-arm64/zenvo-darwin-arm64.tar.gz | cut -d' ' -f1)
+          SHA_DARWIN_X64=$(sha256sum artifacts/zenvo-darwin-x64/zenvo-darwin-x64.tar.gz | cut -d' ' -f1)
+          SHA_LINUX_ARM64=$(sha256sum artifacts/zenvo-linux-arm64/zenvo-linux-arm64.tar.gz | cut -d' ' -f1)
+          SHA_LINUX_X64=$(sha256sum artifacts/zenvo-linux-x64/zenvo-linux-x64.tar.gz | cut -d' ' -f1)
+
+          # Update formula
+          sed -i "s/version \".*\"/version \"$VERSION\"/" homebrew/zenvo.rb
+          sed -i "s/PLACEHOLDER_SHA256_DARWIN_ARM64/$SHA_DARWIN_ARM64/" homebrew/zenvo.rb
+          sed -i "s/PLACEHOLDER_SHA256_DARWIN_X64/$SHA_DARWIN_X64/" homebrew/zenvo.rb
+          sed -i "s/PLACEHOLDER_SHA256_LINUX_ARM64/$SHA_LINUX_ARM64/" homebrew/zenvo.rb
+          sed -i "s/PLACEHOLDER_SHA256_LINUX_X64/$SHA_LINUX_X64/" homebrew/zenvo.rb
+
+          cat homebrew/zenvo.rb
+
+      - name: Push to homebrew-zenvo tap
+        if: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+        uses: dmnemec/copy_file_to_another_repo_action@main
+        env:
+          API_TOKEN_GITHUB: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        with:
+          source_file: 'homebrew/zenvo.rb'
+          destination_repo: 'h-mbl/homebrew-zenvo'
+          destination_folder: 'Formula'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          user_name: 'github-actions[bot]'
+          commit_message: 'Update zenvo to ${{ github.ref_name }}'

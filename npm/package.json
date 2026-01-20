@@ -1,0 +1,55 @@
+{
+  "name": "zenvo",
+  "version": "0.1.0",
+  "description": "Node.js environment lock, doctor & repair tool - like Poetry for Python, but for the entire Node.js toolchain",
+  "keywords": [
+    "nodejs",
+    "node",
+    "environment",
+    "lock",
+    "doctor",
+    "repair",
+    "npm",
+    "pnpm",
+    "yarn",
+    "version",
+    "cli",
+    "toolchain",
+    "devops",
+    "ci"
+  ],
+  "author": "Zenvo Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/h-mbl/zenvo.git"
+  },
+  "homepage": "https://github.com/h-mbl/zenvo#readme",
+  "bugs": {
+    "url": "https://github.com/h-mbl/zenvo/issues"
+  },
+  "bin": {
+    "zenvo": "bin/zenvo",
+    "zenvo-mcp": "bin/zenvo-mcp"
+  },
+  "files": [
+    "bin",
+    "install.js",
+    "README.md"
+  ],
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ]
+}

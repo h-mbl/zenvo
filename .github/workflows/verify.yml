@@ -1,0 +1,43 @@
+name: Environment Verify
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  zenvo-verify:
+    name: Verify Node.js Environment
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Zenvo
+        run: npm install -g zenvo
+
+      - name: Check for env.lock
+        id: check-envlock
+        run: |
+          if [ -f "env.lock" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "::notice::No env.lock found. Run 'zenvo init' to create one."
+          fi
+
+      - name: Verify Environment
+        if: steps.check-envlock.outputs.exists == 'true'
+        run: zenvo verify --format json
+
+      - name: Run Doctor (if no env.lock)
+        if: steps.check-envlock.outputs.exists == 'false'
+        run: zenvo doctor --format json
+        continue-on-error: true
