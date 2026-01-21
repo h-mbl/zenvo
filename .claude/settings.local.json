@@ -8,7 +8,8 @@
       "Bash(zenvo resolve:*)",
       "Bash(git checkout:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git -C \"H:\\\\Github\\\\zenvo\" rm .github/workflows/rust.yml)"
     ]
   }
 }

@@ -1,43 +1,36 @@
-name: Environment Verify
+name: CI
 
 on:
   push:
-    branches: [master, main]
+    branches: [main, master]
   pull_request:
-    branches: [master, main]
+    branches: [main, master]
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  zenvo-verify:
-    name: Verify Node.js Environment
+  build:
+    name: Build & Test
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Install Zenvo
-        run: npm install -g zenvo
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
 
-      - name: Check for env.lock
-        id: check-envlock
-        run: |
-          if [ -f "env.lock" ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "::notice::No env.lock found. Run 'zenvo init' to create one."
-          fi
+      - name: Build
+        run: cargo build --release
 
-      - name: Verify Environment
-        if: steps.check-envlock.outputs.exists == 'true'
-        run: zenvo verify --format json
+      - name: Run tests
+        run: cargo test
 
-      - name: Run Doctor (if no env.lock)
-        if: steps.check-envlock.outputs.exists == 'false'
-        run: zenvo doctor --format json
-        continue-on-error: true
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
