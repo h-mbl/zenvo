@@ -2,7 +2,15 @@
 
 Node.js environment lock, doctor & repair tool.
 
-[![Crates.io](https://img.shields.io/crates/v/zenvo.svg)](https://crates.io/crates/zenvo)
+<!-- [![Crates.io](https://img.shields.io/crates/v/zenvo.svg)](https://crates.io/crates/zenvo)
+# Homebrew
+brew install h-mbl/zenvo/zenvo
+
+# Cargo
+cargo install zenvo
+
+-->
+
 [![npm](https://img.shields.io/npm/v/zenvo.svg)](https://www.npmjs.com/package/zenvo)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -11,12 +19,6 @@ Node.js environment lock, doctor & repair tool.
 ```bash
 # npm
 npm install -g zenvo
-
-# Homebrew
-brew install h-mbl/zenvo/zenvo
-
-# Cargo
-cargo install zenvo
 ```
 
 ## Usage
